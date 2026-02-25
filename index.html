@@ -1,153 +1,205 @@
-import pygame
-import sys
-import random
 
-# ---------- 初始化 ----------
-pygame.init()
-WIDTH, HEIGHT = 1000, 300
-screen = pygame.display.set_mode((WIDTH, HEIGHT))
-pygame.display.set_caption("情侣飞行棋 - Auronix版")
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>情侣飞行棋 💖🧩</title>
+<style>
+body { font-family: sans-serif; margin:0; padding:20px; background:#fff0f5; display:flex; flex-direction:column; align-items:center;}
+h1 { color:#ff69b4; text-align:center;}
+#gameContainer { display:flex; gap:20px; flex-wrap:wrap; justify-content:center; }
+#board { display:grid; grid-template-columns:repeat(10,40px); grid-gap:2px; }
+.cell { width:40px; height:40px; border:1px solid #ccc; display:flex; justify-content:center; align-items:center; position:relative; font-size:12px; border-radius:4px; background:#ffe6f0; }
+.heart { width:30px; height:30px; border-radius:50%; display:flex; justify-content:center; align-items:center; color:white; font-weight:bold; position:absolute; top:5px; left:5px; transition: transform 0.3s ease; }
+.player1 { background-color:#ff69b4; }
+.player2 { background-color:#87cefa; }
+#contentList { max-height:420px; overflow-y:auto; width:220px; background:white; border-radius:5px; padding:5px; box-shadow:1px 1px 5px rgba(0,0,0,0.1); }
+#contentList div { padding:2px 5px; font-size:12px; color:#333; display:none; }
+#contentList div.active { display:block; background:#ffb6c1; border-radius:3px; }
+button { padding:8px 16px; margin:5px; border:none; border-radius:5px; background:#ff69b4; color:white; cursor:pointer; }
+#dice { font-size:30px; margin:10px; font-weight:bold; transition: transform 0.2s ease; display:inline-block; }
+#playerNames { margin-bottom:10px; text-align:center; }
+input { padding:4px 6px; margin:0 5px; border-radius:4px; border:1px solid #ccc; }
+</style>
+</head>
+<body>
 
-# 颜色
-WHITE = (255, 255, 255)
-BLACK = (0, 0, 0)
-RED = (255, 50, 50)
-BLUE = (50, 50, 255)
-GREEN = (50, 255, 50)
-YELLOW = (255, 255, 50)
-GRAY = (200, 200, 200)
-DICE_COLOR = (200, 100, 50)
+<h1>情侣飞行棋 💖🧩<br>ល្បែងហ្គេមហោះគូស្នេហ៍</h1>
 
-# 字体
-font = pygame.font.SysFont("arial", 18)
-big_font = pygame.font.SysFont("arial", 28)
+<div id="playerNames">
+玩家1昵称: <input id="name1" placeholder="💖Ta1">
+玩家2昵称: <input id="name2" placeholder="💙Ta2">
+<button id="startBtn">开始游戏 / ចាប់ផ្តើមហ្គេម</button>
+</div>
 
-# 棋盘格子
-NUM_SQUARES = 50
-SQUARE_WIDTH = WIDTH // NUM_SQUARES
+<div id="gameContainer">
+  <div id="board"></div>
+  <div id="contentList"></div>
+</div>
 
-# 玩家位置
-player_pos = {"A": 0, "B": 0}
+<div>
+<button id="rollBtn" disabled>掷骰子 🎲 / ដាក់គ្រាប់ចាញ់ 🎲</button>
+<div id="dice">🎲</div>
+<div id="status"></div>
+</div>
 
-# 奖励/惩罚格
-special_squares = {
-    5: ("奖励：前进2格", "រង្វាន់: ឡើង 2 កន្លែង"),
-    12: ("惩罚：后退1格", "ទោស: ត្រឡប់ 1 កន្លែង"),
-    20: ("奖励：前进3格", "រង្វាន់: ឡើង 3 កន្លែង"),
-    33: ("惩罚：后退2格", "ទោស: ត្រឡប់ 2 កន្លែង"),
-    42: ("奖励：再掷一次", "រង្វាន់: លេងម្តងទៀត")
+<script>
+const boardSize = 100;
+const board = document.getElementById('board');
+const contentList = document.getElementById('contentList');
+const status = document.getElementById('status');
+const diceEl = document.getElementById('dice');
+const rollBtn = document.getElementById('rollBtn');
+const startBtn = document.getElementById('startBtn');
+
+let playerPos = [0,0];
+let currentPlayer = 0;
+let playerNames = ["玩家1","玩家2"];
+let moving = false;
+
+// 特殊格子
+const specialCells = {
+  5: {type:'kiss', text:'亲亲+2 💏 / ប៉ះ +2 💏', move:2},
+  12:{type:'home', text:'回家-1 🏠 / ត្រឡប់-1 🏠', move:-1},
+  23:{type:'kiss', text:'亲亲+2 💏 / ប៉ះ +2 💏', move:2},
+  37:{type:'home', text:'回家-1 🏠 / ត្រឡប់-1 🏠', move:-1},
+  50:{type:'kiss', text:'亲亲+2 💏 / ប៉ះ +2 💏', move:2},
+  70:{type:'home', text:'回家-1 🏠 / ត្រឡប់-1 🏠', move:-1},
+  85:{type:'kiss', text:'亲亲+2 💏 / ប៉ះ +2 💏', move:2}
+};// 完整 100 格浪漫互动模板
+let cellContents = [
+"起点 🌸 / ចំណុចចាប់ផ្តើម 💖","牵手 ✋ / ចាប់ដៃ ✋","甜蜜拥抱 🤗 / ក្បាលស្និទ្ធ 🤗","亲吻 💏 / ប៉ះ 💏","互相看眼睛 👀 / មើលភ្នែកគ្នា 👀",
+"送小礼物 🎁 / អំណោយតូច 🎁","浪漫晚餐 🍽 / អាហារពេលល្ងាច 🍽","一起散步 🚶‍♂️🚶‍♀️ / ដើរលេងជាគូ 🚶‍♂️🚶‍♀️","一起听音乐 🎵 / ស្ដាប់តន្រ្តី 🎵","一起看电影 🎬 / មើលភាពយន្ត 🎬",
+"心形巧克力 🍫 / សូកូឡា 💖","亲亲+2 💏 / ប៉ះ +2 💏","骑行 🚴 / ជិះកង់ 🚴","日落 🌇 / រះថ្ងៃលិច 🌇","回家-1 🏠 / ត្រឡប់-1 🏠",
+"小猫 🐱 / ឆ្មា 🐱","小狗 🐶 / ឆ្កែ 🐶","沙滩 🏖 / ឆ្នេរ 🏖","浪漫热气球 🎈 / បាល់ពាណិជ្ជកម្ម 🎈","亲亲+2 💏 / ប៉ះ +2 💏",
+"湖边 🌅 / ទន្លេ 🌅","书籍 📚 / សៀវភៅ 📚","回家-1 🏠 / ត្រឡប់-1 🏠","跳舞 💃 / រាំ 💃","摩天轮 🎡 / ជិះកង់ 🎡",
+"温馨拥抱 🤗 / ក្បាលស្និទ្ធ 🤗","手工 🎨 / សិប្បកម្ម 🎨","亲亲+2 💏 / ប៉ះ +2 💏","骑马 🐎 / ជិះ말 🐎","滑板 🛹 / ស្គាតប៊ូត 🛹",
+"星空 ✨ / យប់ព្រលឹត ✨","小礼物 🎁 / អំណោយតូច 🎁","亲亲+2 💏 / ប៉ះ +2 💏","咖啡 ☕️ / កាហ្វេ ☕️","旅行 ✈️ / ដំណើរ ✈️",
+"回家-1 🏠 / ត្រឡប់-1 🏠","露营 🏕 / ជំរះស្រែ 🏕","日落漫步 🌇 / ដើរលេងពេលលិច 🌇","浪漫晚餐 🍽 / អាហារពេលល្ងាច 🍽","亲亲+2 💏 / ប៉ះ +2 💏",
+"电影之夜 🎬 / រាត្រីភាពយន្ត 🎬","温暖拥抱 🤗 / ក្បាលស្និទ្ធ 🤗","一起看星星 🌌 / មើលផ្កាយ 🌌","花园 🌹 / សួនផ្កា 🌹","甜点 🍰 / បង្អែម 🍰",
+"亲亲+2 💏 / ប៉ះ +2 💏","手写信 ✉️ / លិខិតដៃ ✉️","野餐 🧺 / បាយត្រាំ 🧺","回家-1 🏠 / ត្រឡប់-1 🏠","温馨依偎 🤗 / អង្គុយជិត 🤗",
+"摩天轮 🎡 / ជិះកង់ 🎡","小惊喜 🎀 / 깡សំណាង 🎀","亲亲+2 💏 / ប៉ះ +2 💏","海滩 🏖 / ឆ្នេរ 🏖","游乐园 🎢 / ឧទ្យានកំសាន្ត 🎢",
+"回家-1 🏠 / ត្រឡប់-1 🏠","手工制作 🎨 / សិប្បកម្ម 🎨","一起听音乐 🎵 / ស្ដាប់តន្រ្តី 🎵","温馨晚安 🌙 / រាត្រីស្វាគមន៍ 🌙","亲亲+2 💏 / ប៉ះ +2 💏",
+"咖啡时光 ☕️ / ពេលកាហ្វេ ☕️","骑行 🚴 / ជិះកង់ 🚴","浪漫晚餐 🍽 / អាហារពេលល្ងាច 🍽","小猫 🐱 / ឆ្មា 🐱","亲亲+2 💏 / ប៉ះ +2 💏",
+"游乐园 🎢 / ឧទ្យានកំសាន្ត 🎢","回家-1 🏠 / ត្រឡប់-1 🏠","心形巧克力 🍫 / សូកូឡា 💖","日落 🌇 / រះថ្ងៃលិច 🌇","手写信 ✉️ / លិខិតដៃ ✉️",
+"浪漫散步 🚶‍♂️🚶‍♀️ / ដើរលេងជាគូ 🚶‍♂️🚶‍♀️","电影 🎬 / ភាពយន្ត 🎬","亲亲+2 💏 / ប៉ះ +2 💏","骑马 🐎 / ជិះ말 🐎","滑板 🛹 / ស្គាតប៊ូត 🛹"
+];
+  
+// 创建棋盘和内容列表
+for(let i=0;i<boardSize;i++){
+  const cell = document.createElement('div');
+  cell.className='cell';
+  cell.id='cell-'+i;
+  cell.textContent=i+1;
+  board.appendChild(cell);
+
+  const contentDiv = document.createElement('div');
+  contentDiv.id='content-'+i;
+  contentDiv.textContent = cellContents[i];
+  contentList.appendChild(contentDiv);
 }
 
-# 语言选择
-language = "cn"  # cn: 中文, kh: 高棉语
+// 更新棋盘显示
+function updateBoard(){
+  for(let i=0;i<boardSize;i++){
+    const contentDiv = document.getElementById('content-'+i);
+    if(i===playerPos[currentPlayer]){
+      contentDiv.classList.add('active');
+      contentDiv.scrollIntoView({behavior:'smooth', block:'center'});
+    } else {
+      contentDiv.classList.remove('active');
+    }
+  }
 
-# 当前提示信息
-message = ""
+  for(let i=0;i<boardSize;i++){
+    const cell = document.getElementById('cell-'+i);
+    cell.innerHTML = i+1;
+  }
+  // 棋子
+  if(playerPos[0]<boardSize){
+    const p1 = document.createElement('div');
+    p1.className='heart player1';
+    p1.textContent='💖';
+    document.getElementById('cell-'+playerPos[0]).appendChild(p1);
+  }
+  if(playerPos[1]<boardSize){
+    const p2 = document.createElement('div');
+    p2.className='heart player2';
+    p2.textContent='💙';
+    document.getElementById('cell-'+playerPos[1]).appendChild(p2);
+  }
+}
 
-# ---------- 游戏函数 ----------
-def dice_jump_animation(final_value):
-    # 骰子初始位置
-    x, y = WIDTH - 150, 50
-    velocity = -15  # 弹起速度
-    gravity = 1
-    dy = velocity
-    bounce_count = 0
+// 棋子移动动画
+async function movePlayer(playerIndex, steps){
+  moving=true;
+  for(let s=0;s<steps;s++){
+    playerPos[playerIndex] += 1;
+    if(playerPos[playerIndex]>=boardSize) playerPos[playerIndex]=boardSize-1;
+    updateBoard();
+    await new Promise(r=>setTimeout(r,300));
+  }
+  // 检查特殊格
+  if(specialCells[playerPos[playerIndex]]){
+    const move = specialCells[playerPos[playerIndex]].move;
+    if(move!==0){
+      await movePlayer(playerIndex, move);
+      alert(specialCells[playerPos[playerIndex]].text);
+    }
+  }
+  moving=false;
+}
 
-    while bounce_count < 2:
-        screen.fill(WHITE)
-        draw_board(dice=None)
-        # 画骰子
-        pygame.draw.rect(screen, DICE_COLOR, (x, y, 50, 50))
-        dice_surface = big_font.render(str(final_value), True, BLACK)
-        screen.blit(dice_surface, (x + 15, y + 10))
-        pygame.display.flip()
+// 骰子转动动画
+function rollDiceAnimation(){
+  return new Promise(resolve=>{
+    let count=0;
+    const interval = setInterval(()=>{
+      const r = Math.floor(Math.random()*6)+1;
+      diceEl.textContent = '🎲 '+r;
+      diceEl.style.transform = 'rotate('+Math.random()*360+'deg) scale(1.2)';
+      count++;
+      if(count>=10){
+        clearInterval(interval);
+        resolve(r);
+      }
+    },50);
+  });
+}
 
-        y += dy
-        dy += gravity
+// 掷骰子逻辑
+async function rollDice(){
+  if(moving) return;
+  const roll = await rollDiceAnimation();
+  diceEl.textContent='🎲 '+roll;
+  await movePlayer(currentPlayer, roll);if(playerPos[currentPlayer]>=boardSize){
+    playerPos[currentPlayer]=boardSize-1;
+    alert(playerNames[currentPlayer]+'获胜！💖 / '+playerNames[currentPlayer]+' ឈ្នះ! 💖');
+    playerPos=[0,0];
+  }
 
-        if y >= 100:  # 碰到底部弹起
-            y = 100
-            dy = -dy * 0.6  # 弹力衰减
-            bounce_count += 1
+  currentPlayer=1-currentPlayer;
+  status.textContent = playerNames[currentPlayer]+'轮到 / អ្នកលេង'+(currentPlayer+1);
+  updateBoard();
+}
 
-        pygame.time.delay(20)
+// 开始游戏
+startBtn.addEventListener('click', ()=>{
+  const n1 = document.getElementById('name1').value.trim();
+  const n2 = document.getElementById('name2').value.trim();
+  if(n1) playerNames[0]=n1;
+  if(n2) playerNames[1]=n2;
+  playerPos=[0,0];
+  currentPlayer=0;
+  rollBtn.disabled=false;
+  status.textContent = playerNames[currentPlayer]+'轮到 / អ្នកលេង'+(currentPlayer+1);
+  updateBoard();
+});
 
-def roll_dice_animation():
-    for _ in range(10):
-        dice = random.randint(1, 6)
-        draw_board(dice=dice)
-        pygame.time.delay(50)
-    dice = random.randint(1, 6)
-    dice_jump_animation(dice)
-    return dice
+rollBtn.addEventListener('click', rollDice);
+updateBoard();
+</script>
 
-def move_player(player):
-    global message
-    dice = roll_dice_animation()
-    player_pos[player] = (player_pos[player] + dice) % NUM_SQUARES
-    msg = f"{player} 掷骰子: {dice}, 当前位置: {player_pos[player]}"
-    
-    if player_pos[player] in special_squares:
-        reward = special_squares[player_pos[player]][0] if language=="cn" else special_squares[player_pos[player]][1]
-        msg += " | " + reward
-        if "前进" in reward or "ឡើង" in reward:
-            move = int([s for s in reward if s.isdigit()][0])
-            player_pos[player] = (player_pos[player] + move) % NUM_SQUARES
-        elif "后退" in reward or "ត្រឡប់" in reward:
-            move = int([s for s in reward if s.isdigit()][0])
-            player_pos[player] = (player_pos[player] - move) % NUM_SQUARES
-        elif "再掷一次" in reward or "លេងម្តងទៀត" in reward:
-            move_player(player)
-    message = msg
-    print(msg)
-
-def draw_board(dice=None):
-    # 画格子
-    for i in range(NUM_SQUARES):
-        rect = pygame.Rect(i*SQUARE_WIDTH, HEIGHT//2 - 30, SQUARE_WIDTH, 60)
-        color = GRAY
-        if i in special_squares:
-            color = YELLOW
-        pygame.draw.rect(screen, color, rect)
-        pygame.draw.rect(screen, BLACK, rect, 1)
-    
-    # 画玩家
-    pygame.draw.circle(screen, RED, (player_pos["A"]*SQUARE_WIDTH + SQUARE_WIDTH//2, HEIGHT//2), 15)
-    pygame.draw.circle(screen, BLUE, (player_pos["B"]*SQUARE_WIDTH + SQUARE_WIDTH//2, HEIGHT//2), 15)
-    
-    # 显示提示信息
-    if message:
-        msg_surface = big_font.render(message, True, BLACK)
-        screen.blit(msg_surface, (10, HEIGHT - 50))
-    
-    # 显示骰子点数（静态）
-    if dice:
-        pygame.draw.rect(screen, DICE_COLOR, (WIDTH - 150, 50, 50, 50))
-        dice_surface = big_font.render(str(dice), True, BLACK)
-        screen.blit(dice_surface, (WIDTH - 135, 60))
-    
-    pygame.display.flip()
-
-# ---------- 主循环 ----------
-turn_order = ["A", "B"]
-turn_index = 0
-clock = pygame.time.Clock()
-
-while True:
-    clock.tick(10)
-    draw_board()
-    
-    for event in pygame.event.get():
-        if event.type == pygame.QUIT:
-            pygame.quit()
-            sys.exit()
-        # 空格掷骰子
-        if event.type == pygame.KEYDOWN:
-            if event.key == pygame.K_SPACE:
-                current_player = turn_order[turn_index % 2]
-                move_player(current_player)
-                turn_index += 1
-            # L键切换语言
-            if event.key == pygame.K_l:
-                language = "kh" if language=="cn" else "cn"
-                message = f"语言切换为: {'高棉语' if language=='kh' else '中文'}"
+</body>
+</html>
