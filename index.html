@@ -1,5 +1,75 @@
+
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<title>💘 情侣飞行棋</title>
+<style>
+body{
+  font-family: Arial, sans-serif;
+  background:#111;
+  color:#fff;
+  text-align:center;
+}
+#board{
+  display:grid;
+  grid-template-columns:repeat(10,1fr);
+  gap:4px;
+  max-width:360px;
+  margin:20px auto;
+}
+.cell{
+  background:#222;
+  border-radius:6px;
+  padding:6px 0;
+  font-size:12px;
+}
+.p1{ background:#ff4d6d; }
+.p2{ background:#4da6ff; }
+.highlight{ box-shadow:0 0 10px #fff; }
+button{
+  padding:10px 20px;
+  font-size:18px;
+  border:none;
+  border-radius:8px;
+  background:#ff4d6d;
+  color:#fff;
+}
+#task{ margin-top:15px; font-size:16px; }
+#status{ margin-top:10px; }
+#winBox{
+  position:fixed;
+  inset:0;
+  background:rgba(0,0,0,.8);
+  display:none;
+  align-items:center;
+  justify-content:center;
+}
+#winText{
+  background:#222;
+  padding:20px;
+  border-radius:12px;
+  font-size:22px;
+}
+</style>
+</head>
+<body>
+
+<h2>💘 情侣飞行棋<br>Love Dice Game</h2>
+
+<div id="board"></div>
+
+<button onclick="roll()">🎲 掷骰子</button>
+
+<div id="status">当前玩家：1</div>
+<div id="task"></div>
+
+<div id="winBox">
+  <div id="winText"></div>
+</div>
+
 <script>
-// 生成棋盘逻辑不变
+// 生成棋盘
 const board=document.getElementById("board");
 for(let i=1;i<=100;i++){
   let cell=document.createElement("div");
@@ -9,169 +79,119 @@ for(let i=1;i<=100;i++){
   board.appendChild(cell);
 }
 
-/* 情侣任务数组 */
+/* 情侣任务（中 + 高棉） */
 const tasks=[
-"说一句喜欢对方的话",
-"牵手5秒",
-"对视3秒",
-"夸对方一句",
-"轻轻靠近",
-"抱一下",
-"说最喜欢对方哪里",
-"给一个温柔微笑",
-"说未来想一起做的事",
-"轻声叫昵称"
+"说一句喜欢对方的话<br><small>និយាយថាអ្នកស្រឡាញ់គាត់/នាង</small>",
+"牵手5秒<br><small>កាន់ដៃ ៥ វិនាទី</small>",
+"对视3秒<br><small>មើលភ្នែកគ្នា ៣ វិនាទី</small>",
+"夸对方一句<br><small>សរសើរគាត់/នាងមួយ句</small>",
+"轻轻靠近<br><small>ខិតជិតយ៉ាងទន់ភ្លន់</small>",
+"抱一下<br><small>អោបគ្នាម្តង</small>",
+"说最喜欢对方哪里<br><small>ប្រាប់ថាអ្នកចូលចិត្តគាត់/នាងត្រង់ណា</small>",
+"给一个温柔微笑<br><small>ញញឹមយ៉ាងទន់ភ្លន់</small>",
+"说未来想一起做的事<br><small>និយាយអំពីអ្វីដែលចង់ធ្វើជាមួយគ្នាពេលអនាគត</small>",
+"轻声叫昵称<br><small>ហៅឈ្មោះហៅក្រៅដោយសម្លេងទន់</small>"
 ];
 
-/* 奖励/惩罚 */
+/* 奖励 */
 const rewards=[
-"💚 前进2格",
-"💚 额外再掷一次骰子",
-"💚 互相拥抱一下",
-"💚 对方夸你一句"
+"💚 前进2格<br><small>ទៅមុខ ២ ជំហាន</small>",
+"💚 额外再掷一次骰子<br><small>បោះគ្រាប់骰ម្តងទៀត</small>",
+"💚 互相拥抱一下<br><small>អោបគ្នាម្តង</small>",
+"💚 对方夸你一句<br><small>ឲ្យគាត់/នាងសរសើរអ្នក</small>"
 ];
 
+/* 惩罚 */
 const penalties=[
-"❤️ 后退2格",
-"❤️ 本轮跳过一次",
-"❤️ 做一个搞笑动作",
-"❤️ 说一句害羞的话"
+"❤️ 后退2格<br><small>ថយក្រោយ ២ ជំហាន</small>",
+"❤️ 本轮跳过一次<br><small>រំលងវេនម្តង</small>",
+"❤️ 做一个搞笑动作<br><small>ធ្វើចលនាកំប្លែងមួយ</small>",
+"❤️ 说一句害羞的话<br><small>និយាយពាក្យខ្មាស់អៀនមួយ</small>"
 ];
 
-let p1=-1, p2=-1;
-let current=1;
-let moving=false;
+let p1=-1,p2=-1,current=1,moving=false;
 let skipNext={1:false,2:false};
 
-/* 更新棋盘 */
 function updateBoard(){
-  document.querySelectorAll(".cell").forEach(c=>{
-    c.classList.remove("p1","p2","highlight");
-  });
+  document.querySelectorAll(".cell").forEach(c=>c.className="cell");
   if(p1>=1) document.getElementById("c"+p1).classList.add("p1");
   if(p2>=1) document.getElementById("c"+p2).classList.add("p2");
 }
 
-/* 延迟函数 */
-function sleep(ms){ return new Promise(resolve=>setTimeout(resolve,ms)); }
+function sleep(ms){return new Promise(r=>setTimeout(r,ms));}
+function playSound(url){ new Audio(url).play(); }
 
-/* 播放提示音 */
-function playSound(url){
-  const audio = new Audio(url);
-  audio.play();
-}
-
-/* 掷骰子动画 */
-async function diceAnimation(button){
+async function diceAnimation(btn){
   for(let i=0;i<6;i++){
-    let rand=Math.floor(Math.random()*6)+1;
-    button.innerText="🎲 "+rand;
+    btn.innerText="🎲 "+(Math.floor(Math.random()*6)+1);
     await sleep(100);
   }
 }
 
-/* 主逻辑 */
 async function roll(){
-  const button=document.querySelector("button");
-  if(moving) return; 
+  const btn=document.querySelector("button");
+  if(moving) return;
   moving=true;
-
-  // 掷骰子动画
-  await diceAnimation(button);
+  await diceAnimation(btn);
 
   if(skipNext[current]){
-    document.getElementById("status").innerText="玩家"+current+" 本轮跳过!";
+    document.getElementById("status").innerText="玩家"+current+" 跳过 | រំលងវេន";
     skipNext[current]=false;
     current=current===1?2:1;
-    moving=false;
-    button.innerText="🎲 掷骰子";
-    return;
+    moving=false; btn.innerText="🎲 掷骰子"; return;
   }
 
   let dice=Math.floor(Math.random()*6)+1;
-  document.getElementById("status").innerText="玩家"+current+" 掷出："+dice;
-  playSound("https://cdn-icons-png.flaticon.com/512/330/330474.png"); // 小音效
+  playSound("https://assets.mixkit.co/sfx/preview/mixkit-game-dice-roll-1994.mp3");
 
-  let pos = current===1 ? p1 : p2;
-
+  let pos=current===1?p1:p2;
   if(pos===-1){
-    if(dice===6){
-      pos = current===1 ? 1 : 51;
-      if(current===1) p1=pos; else p2=pos;
-      updateBoard();
-    } else {
-      current = current===1?2:1;
-    }
-    moving=false;
-    button.innerText="🎲 掷骰子";
-    return;
+    if(dice===6){ pos=current===1?1:51; current===1?p1=pos:p2=pos; updateBoard(); }
+    else current=current===1?2:1;
+    moving=false; btn.innerText="🎲 掷骰子"; return;
   }
 
-  // 逐步移动动画
-  for(let i=1;i<=dice;i++){
-    pos+=1;
-    if(current===1 && pos>50){
-      document.getElementById("winText").innerText="💘 玩家1胜利！";
+  for(let i=0;i<dice;i++){
+    pos++;
+    if((current===1 && pos>50)||(current===2 && pos>100)){
+      document.getElementById("winText").innerHTML="💘 玩家"+current+" 胜利！<br><small>ឈ្នះហើយ!</small>";
       document.getElementById("winBox").style.display="flex";
-      moving=false;
-      button.innerText="🎲 掷骰子";
-      return;
+      moving=false; btn.innerText="🎲 掷骰子"; return;
     }
-    if(current===2 && pos>100){
-      document.getElementById("winText").innerText="💘 玩家2胜利！";
-      document.getElementById("winBox").style.display="flex";
-      moving=false;
-      button.innerText="🎲 掷骰子";
-      return;
-    }
-    if(current===1) p1=pos; else p2=pos;
-    updateBoard();
-    await sleep(300);
+    current===1?p1=pos:p2=pos;
+    updateBoard(); await sleep(250);
   }
 
-  // 显示任务
-  let taskIndex=(pos-1)%tasks.length;
-  let taskText=tasks[taskIndex];
+  let text=tasks[(pos-1)%tasks.length];
+  let rand=Math.random(), extra="";
 
-  // 随机奖励/惩罚
-  let rand=Math.random();
-  let rpText="";
   if(rand<0.25){
-    let r = rewards[Math.floor(Math.random()*rewards.length)];
-    rpText=r;
-    if(r.includes("前进2格")){
+    let r=rewards[Math.floor(Math.random()*rewards.length)];
+    extra=r;
+    if(r.includes("前进")){
       pos+=2;
-      if(current===1 && pos>50){ document.getElementById("winText").innerText="💘 玩家1胜利！"; document.getElementById("winBox").style.display="flex"; moving=false; button.innerText="🎲 掷骰子"; return;}
-      if(current===2 && pos>100){ document.getElementById("winText").innerText="💘 玩家2胜利！"; document.getElementById("winBox").style.display="flex"; moving=false; button.innerText="🎲 掷骰子"; return;}
-      if(current===1) p1=pos; else p2=pos;
+      current===1?p1=pos:p2=pos;
       updateBoard();
-      // 高亮格子动画
-      let cell=document.getElementById("c"+pos);
-      cell.classList.add("highlight");
-      playSound("https://cdn-icons-png.flaticon.com/512/889/889417.png");
-      await sleep(500);
+      playSound("https://assets.mixkit.co/sfx/preview/mixkit-achievement-bell-600.mp3");
     }
-    if(r.includes("额外再掷一次骰子")) current=current; // 不换玩家
-  } else if(rand>0.75){
-    let p = penalties[Math.floor(Math.random()*penalties.length)];
-    rpText=p;
-    if(p.includes("后退2格")){
-      pos-=2; if(pos<1) pos=1;
-      if(current===1) p1=pos; else p2=pos;
+    if(r.includes("再掷")){ moving=false; btn.innerText="🎲 掷骰子"; document.getElementById("task").innerHTML=text+"<br>"+extra; return;}
+  }else if(rand>0.75){
+    let p=penalties[Math.floor(Math.random()*penalties.length)];
+    extra=p;
+    if(p.includes("后退")){
+      pos=Math.max(1,pos-2);
+      current===1?p1=pos:p2=pos;
       updateBoard();
-      let cell=document.getElementById("c"+pos);
-      cell.classList.add("highlight");
-      playSound("https://cdn-icons-png.flaticon.com/512/1828/1828665.png");
-      await sleep(500);}
-    if(p.includes("本轮跳过一次")) skipNext[current]=true;
+    }
+    if(p.includes("跳过")) skipNext[current]=true;
   }
 
-  document.getElementById("task").innerHTML = taskText + "<br><span style='color:#0f0'>" + rpText + "</span>";
-
-  // 切换玩家
-  if(!rpText.includes("额外再掷一次骰子") && dice!==6) current=current===1?2:1;
+  document.getElementById("task").innerHTML=text+"<br>"+extra;
+  current=current===1?2:1;
   document.getElementById("status").innerText="当前玩家："+current;
-  moving=false;
-  button.innerText="🎲 掷骰子";
+  moving=false; btn.innerText="🎲 掷骰子";
 }
 </script>
+
+</body>
+</html>
