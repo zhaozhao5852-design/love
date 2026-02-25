@@ -1,7 +1,6 @@
 <script>
+// 生成棋盘逻辑不变
 const board=document.getElementById("board");
-
-/* 生成100格 */
 for(let i=1;i<=100;i++){
   let cell=document.createElement("div");
   cell.className="cell";
@@ -24,7 +23,7 @@ const tasks=[
 "轻声叫昵称"
 ];
 
-/* 奖励和惩罚数组 */
+/* 奖励/惩罚 */
 const rewards=[
 "💚 前进2格",
 "💚 额外再掷一次骰子",
@@ -41,62 +40,88 @@ const penalties=[
 
 let p1=-1, p2=-1;
 let current=1;
-let moving=false; // 防止重复点击骰子
-let skipNext = {1:false,2:false}; // 本轮跳过标记
+let moving=false;
+let skipNext={1:false,2:false};
 
+/* 更新棋盘 */
 function updateBoard(){
   document.querySelectorAll(".cell").forEach(c=>{
-    c.classList.remove("p1","p2");
+    c.classList.remove("p1","p2","highlight");
   });
   if(p1>=1) document.getElementById("c"+p1).classList.add("p1");
   if(p2>=1) document.getElementById("c"+p2).classList.add("p2");
 }
 
+/* 延迟函数 */
 function sleep(ms){ return new Promise(resolve=>setTimeout(resolve,ms)); }
 
-async function roll(){
-  if(moving) return; 
-  moving = true;
+/* 播放提示音 */
+function playSound(url){
+  const audio = new Audio(url);
+  audio.play();
+}
 
-  // 跳过回合检查
+/* 掷骰子动画 */
+async function diceAnimation(button){
+  for(let i=0;i<6;i++){
+    let rand=Math.floor(Math.random()*6)+1;
+    button.innerText="🎲 "+rand;
+    await sleep(100);
+  }
+}
+
+/* 主逻辑 */
+async function roll(){
+  const button=document.querySelector("button");
+  if(moving) return; 
+  moving=true;
+
+  // 掷骰子动画
+  await diceAnimation(button);
+
   if(skipNext[current]){
     document.getElementById("status").innerText="玩家"+current+" 本轮跳过!";
-    skipNext[current] = false;
-    current = current===1?2:1;
+    skipNext[current]=false;
+    current=current===1?2:1;
     moving=false;
+    button.innerText="🎲 掷骰子";
     return;
   }
 
-  let dice = Math.floor(Math.random()*6)+1;
+  let dice=Math.floor(Math.random()*6)+1;
   document.getElementById("status").innerText="玩家"+current+" 掷出："+dice;
+  playSound("https://cdn-icons-png.flaticon.com/512/330/330474.png"); // 小音效
 
   let pos = current===1 ? p1 : p2;
 
-  if(pos === -1){
-    if(dice === 6){
+  if(pos===-1){
+    if(dice===6){
       pos = current===1 ? 1 : 51;
       if(current===1) p1=pos; else p2=pos;
       updateBoard();
     } else {
-      current = current===1 ? 2 :1;
+      current = current===1?2:1;
     }
-    moving = false;
+    moving=false;
+    button.innerText="🎲 掷骰子";
     return;
   }
 
   // 逐步移动动画
   for(let i=1;i<=dice;i++){
-    pos +=1;
+    pos+=1;
     if(current===1 && pos>50){
       document.getElementById("winText").innerText="💘 玩家1胜利！";
       document.getElementById("winBox").style.display="flex";
       moving=false;
+      button.innerText="🎲 掷骰子";
       return;
     }
     if(current===2 && pos>100){
       document.getElementById("winText").innerText="💘 玩家2胜利！";
       document.getElementById("winBox").style.display="flex";
       moving=false;
+      button.innerText="🎲 掷骰子";
       return;
     }
     if(current===1) p1=pos; else p2=pos;
@@ -105,44 +130,48 @@ async function roll(){
   }
 
   // 显示任务
-  let taskIndex = (pos-1) % tasks.length;
-  let taskText = tasks[taskIndex];
+  let taskIndex=(pos-1)%tasks.length;
+  let taskText=tasks[taskIndex];
 
-  // 随机奖励或惩罚
-  let rand = Math.random();
-  let rpText = "";
-  if(rand<0.25){ // 25%奖励
+  // 随机奖励/惩罚
+  let rand=Math.random();
+  let rpText="";
+  if(rand<0.25){
     let r = rewards[Math.floor(Math.random()*rewards.length)];
-    rpText = r;
+    rpText=r;
     if(r.includes("前进2格")){
-      pos +=2;
-      if(current===1 && pos>50){ document.getElementById("winText").innerText="💘 玩家1胜利！"; document.getElementById("winBox").style.display="flex"; moving=false; return;}
-      if(current===2 && pos>100){ document.getElementById("winText").innerText="💘 玩家2胜利！"; document.getElementById("winBox").style.display="flex"; moving=false; return;}
+      pos+=2;
+      if(current===1 && pos>50){ document.getElementById("winText").innerText="💘 玩家1胜利！"; document.getElementById("winBox").style.display="flex"; moving=false; button.innerText="🎲 掷骰子"; return;}
+      if(current===2 && pos>100){ document.getElementById("winText").innerText="💘 玩家2胜利！"; document.getElementById("winBox").style.display="flex"; moving=false; button.innerText="🎲 掷骰子"; return;}
       if(current===1) p1=pos; else p2=pos;
       updateBoard();
+      // 高亮格子动画
+      let cell=document.getElementById("c"+pos);
+      cell.classList.add("highlight");
+      playSound("https://cdn-icons-png.flaticon.com/512/889/889417.png");
+      await sleep(500);
     }
-    if(r.includes("额外再掷一次骰子")){
-      current = current; // 不换玩家
-    }
-  } else if(rand>0.75){ // 25%惩罚
+    if(r.includes("额外再掷一次骰子")) current=current; // 不换玩家
+  } else if(rand>0.75){
     let p = penalties[Math.floor(Math.random()*penalties.length)];
-    rpText = p;
+    rpText=p;
     if(p.includes("后退2格")){
-      pos -=2; if(pos<1) pos=1;
+      pos-=2; if(pos<1) pos=1;
       if(current===1) p1=pos; else p2=pos;
       updateBoard();
-    }
-    if(p.includes("本轮跳过一次")){
-      skipNext[current]=true;
-    }
+      let cell=document.getElementById("c"+pos);
+      cell.classList.add("highlight");
+      playSound("https://cdn-icons-png.flaticon.com/512/1828/1828665.png");
+      await sleep(500);}
+    if(p.includes("本轮跳过一次")) skipNext[current]=true;
   }
 
   document.getElementById("task").innerHTML = taskText + "<br><span style='color:#0f0'>" + rpText + "</span>";
 
-  // 切换玩家（掷6或额外掷一次不换）
-  if(!rpText.includes("额外再掷一次骰子") && dice!==6) current = current===1?2:1;
+  // 切换玩家
+  if(!rpText.includes("额外再掷一次骰子") && dice!==6) current=current===1?2:1;
   document.getElementById("status").innerText="当前玩家："+current;
-
   moving=false;
+  button.innerText="🎲 掷骰子";
 }
 </script>
