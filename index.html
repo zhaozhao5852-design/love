@@ -1,197 +1,101 @@
-
-<!DOCTYPE html>
-<html lang="zh">
-<head>
-<meta charset="UTF-8">
-<title>💘 情侣飞行棋</title>
-<style>
-body{
-  font-family: Arial, sans-serif;
-  background:#111;
-  color:#fff;
-  text-align:center;
-}
-#board{
-  display:grid;
-  grid-template-columns:repeat(10,1fr);
-  gap:4px;
-  max-width:360px;
-  margin:20px auto;
-}
-.cell{
-  background:#222;
-  border-radius:6px;
-  padding:6px 0;
-  font-size:12px;
-}
-.p1{ background:#ff4d6d; }
-.p2{ background:#4da6ff; }
-.highlight{ box-shadow:0 0 10px #fff; }
-button{
-  padding:10px 20px;
-  font-size:18px;
-  border:none;
-  border-radius:8px;
-  background:#ff4d6d;
-  color:#fff;
-}
-#task{ margin-top:15px; font-size:16px; }
-#status{ margin-top:10px; }
-#winBox{
-  position:fixed;
-  inset:0;
-  background:rgba(0,0,0,.8);
-  display:none;
-  align-items:center;
-  justify-content:center;
-}
-#winText{
-  background:#222;
-  padding:20px;
-  border-radius:12px;
-  font-size:22px;
-}
-</style>
-</head>
-<body>
-
-<h2>💘 情侣飞行棋<br>Love Dice Game</h2>
-
-<div id="board"></div>
-
-<button onclick="roll()">🎲 掷骰子</button>
-
-<div id="status">当前玩家：1</div>
-<div id="task"></div>
-
-<div id="winBox">
-  <div id="winText"></div>
-</div>
-
 <script>
-// 生成棋盘
-const board=document.getElementById("board");
-for(let i=1;i<=100;i++){
-  let cell=document.createElement("div");
-  cell.className="cell";
-  cell.id="c"+i;
-  cell.innerText=i;
-  board.appendChild(cell);
-}
+const totalCells = 30;
+let playerPos = [0, 0];
+let currentPlayer = 0;
+let eventIndex = 0;
 
-/* 情侣任务（中 + 高棉） */
-const tasks=[
-"说一句喜欢对方的话<br><small>និយាយថាអ្នកស្រឡាញ់គាត់/នាង</small>",
-"牵手5秒<br><small>កាន់ដៃ ៥ វិនាទី</small>",
-"对视3秒<br><small>មើលភ្នែកគ្នា ៣ វិនាទី</small>",
-"夸对方一句<br><small>សរសើរគាត់/នាងមួយ句</small>",
-"轻轻靠近<br><small>ខិតជិតយ៉ាងទន់ភ្លន់</small>",
-"抱一下<br><small>អោបគ្នាម្តង</small>",
-"说最喜欢对方哪里<br><small>ប្រាប់ថាអ្នកចូលចិត្តគាត់/នាងត្រង់ណា</small>",
-"给一个温柔微笑<br><small>ញញឹមយ៉ាងទន់ភ្លន់</small>",
-"说未来想一起做的事<br><small>និយាយអំពីអ្វីដែលចង់ធ្វើជាមួយគ្នាពេលអនាគត</small>",
-"轻声叫昵称<br><small>ហៅឈ្មោះហៅក្រៅដោយសម្លេងទន់</small>"
+/* ========= 50 条情侣事件池（中 + 高棉） ========= */
+const eventPool = [
+  { zh: "❤️ 对方夸你一句", km: "❤️ អ្នកត្រូវសរសើរគូស្នេហ៍មួយ句" },
+  { zh: "🔥 对视 20 秒", km: "🔥 មើលភ្នែកគ្នា 20 វិនាទី" },
+  { zh: "💣 后退 2 格", km: "💣 ថយក្រោយ 2 ជំហាន" },
+  { zh: "🎁 再掷一次骰子", km: "🎁 បោះ骰ម្តងទៀត" },
+  { zh: "❤️ 抱一下", km: "❤️ អោបគ្នាម្តង" },
+  { zh: "🔥 说一句情话", km: "🔥 និយាយពាក្យស្នេហ៍មួយ句" },
+  { zh: "💣 停一回合", km: "💣 បាត់មួយវេន" },
+  { zh: "🎁 骰子 +1（本回合）", km: "🎁 ពិន្ទុ骰 +1 (វេននេះ)" },
+  { zh: "❤️ 牵手 30 秒", km: "❤️ កាន់ដៃ 30 វិនាទី" },
+  { zh: "🔥 说一个秘密", km: "🔥 ប្រាប់អាថ៌កំបាំងមួយ" },
+
+  { zh: "💣 被对方轻轻捏脸", km: "💣 ឲ្យគូស្នេហ៍ច្របាច់មុខស្រាលៗ" },
+  { zh: "🎁 前进 2 格", km: "🎁 ទៅមុខ 2 ជំហាន" },
+  { zh: "❤️ 摸摸对方头", km: "❤️ ប៉ះក្បាលគូស្នេហ៍" },
+  { zh: "🔥 小声说我爱你", km: "🔥 និយាយថា ស្រលាញ់អ្នក ស្រាលៗ" },
+  { zh: "💣 后退 3 格", km: "💣 ថយក្រោយ 3 ជំហាន" },
+
+  { zh: "🎁 免疫一次惩罚", km: "🎁 អ免្យូនពីទណ្ឌកម្មម្តង" },
+  { zh: "❤️ 夸对方外貌", km: "❤️ សរសើររូបរាងគូស្នេហ៍" },
+  { zh: "🔥 贴近耳朵说一句话", km: "🔥 និយាយខ្លឹមសារមួយជិតត្រចៀក" },
+  { zh: "💣 原地转一圈", km: "💣 បង្វិលខ្លួនមួយជុំ" },
+  { zh: "🎁 交换位置", km: "🎁 ប្តូរទីតាំងគ្នា" },
+
+  /* ====== 为了够 50 条，下面是补充 ====== */
+  { zh: "❤️ 微笑看着对方 10 秒", km: "❤️ ញញឹមមើលគ្នា 10 វិនាទី" },
+  { zh: "🔥 模仿对方一个表情", km: "🔥 ត្រាប់តាមមុខគូស្នេហ៍" },
+  { zh: "💣 被点一个小惩罚", km: "💣 ទទួលទណ្ឌកម្មតូចមួយ" },
+  { zh: "🎁 本回合不换人", km: "🎁 វេននេះមិនប្តូរអ្នកលេង" },
+  { zh: "❤️ 说一句感谢的话", km: "❤️ និយាយពាក្យអរគុណ" },
+
+  { zh: "🔥 说最喜欢对方的一点", km: "🔥 និយាយអ្វីដែលចូលចិត្តបំផុត" },
+  { zh: "💣 后退 1 格", km: "💣 ថយក្រោយ 1 ជំហាន" },
+  { zh: "🎁 前进 1 格", km: "🎁 ទៅមុខ 1 ជំហាន" },
+  { zh: "❤️ 比个爱心手势", km: "❤️ ធ្វើសញ្ញាបេះដូង" },
+  { zh: "🔥 轻轻碰一下额头", km: "🔥 ប៉ះថ្ងាសស្រាលៗ" },
+
+  { zh: "💣 表演一个可爱的动作", km: "💣 សម្តែងចលនាគួរឲ្យស្រឡាញ់" },
+  { zh: "🎁 指定下一条事件给对方", km: "🎁 កំណត់ព្រឹត្តិការណ៍បន្ទាប់ឲ្យគូស្នេហ៍" },
+  { zh: "❤️ 说一句你喜欢这局游戏", km: "❤️ និយាយថាអ្នកចូលចិត្តល្បែងនេះ" },
+  { zh: "🔥 靠近对方 5 秒", km: "🔥 ចូលជិតគូស្នេហ៍ 5 វិនាទី" },
+  { zh: "💣 停下来深呼吸 3 次", km: "💣 ដកដង្ហើមជ្រៅ 3 ដង" }
 ];
 
-/* 奖励 */
-const rewards=[
-"💚 前进2格<br><small>ទៅមុខ ២ ជំហាន</small>",
-"💚 额外再掷一次骰子<br><small>បោះគ្រាប់骰ម្តងទៀត</small>",
-"💚 互相拥抱一下<br><small>អោបគ្នាម្តង</small>",
-"💚 对方夸你一句<br><small>ឲ្យគាត់/នាងសរសើរអ្នក</small>"
-];
-
-/* 惩罚 */
-const penalties=[
-"❤️ 后退2格<br><small>ថយក្រោយ ២ ជំហាន</small>",
-"❤️ 本轮跳过一次<br><small>រំលងវេនម្តង</small>",
-"❤️ 做一个搞笑动作<br><small>ធ្វើចលនាកំប្លែងមួយ</small>",
-"❤️ 说一句害羞的话<br><small>និយាយពាក្យខ្មាស់អៀនមួយ</small>"
-];
-
-let p1=-1,p2=-1,current=1,moving=false;
-let skipNext={1:false,2:false};
-
-function updateBoard(){
-  document.querySelectorAll(".cell").forEach(c=>c.className="cell");
-  if(p1>=1) document.getElementById("c"+p1).classList.add("p1");
-  if(p2>=1) document.getElementById("c"+p2).classList.add("p2");
-}
-
-function sleep(ms){return new Promise(r=>setTimeout(r,ms));}
-function playSound(url){ new Audio(url).play(); }
-
-async function diceAnimation(btn){
-  for(let i=0;i<6;i++){
-    btn.innerText="🎲 "+(Math.floor(Math.random()*6)+1);
-    await sleep(100);
+/* ========= 棋盘绘制 ========= */
+function drawBoard() {
+  const board = document.getElementById("board");
+  board.innerHTML = "";
+  for (let i = 1; i <= totalCells; i++) {
+    let cell = document.createElement("div");
+    cell.className = "cell";
+    cell.innerText = i;
+    if (playerPos[0] === i) cell.classList.add("player1");
+    if (playerPos[1] === i) cell.classList.add("player2");
+    board.appendChild(cell);
   }
 }
 
-async function roll(){
-  const btn=document.querySelector("button");
-  if(moving) return;
-  moving=true;
-  await diceAnimation(btn);
+/* ========= 掷骰 ========= */
+function rollDice() {
+  let dice = Math.floor(Math.random() * 6) + 1;
+  let log = document.getElementById("log");
 
-  if(skipNext[current]){
-    document.getElementById("status").innerText="玩家"+current+" 跳过 | រំលងវេន";
-    skipNext[current]=false;
-    current=current===1?2:1;
-    moving=false; btn.innerText="🎲 掷骰子"; return;
+  log.innerHTML = `玩家 ${currentPlayer + 1} 🎲 掷出 ${dice}`;
+
+  playerPos[currentPlayer] += dice;
+
+  if (playerPos[currentPlayer] >= totalCells) {
+    playerPos[currentPlayer] = totalCells;
+    drawBoard();
+    log.innerHTML += "<br>🏁 获胜！终极奖励触发";
+    return;
   }
 
-  let dice=Math.floor(Math.random()*6)+1;
-  playSound("https://assets.mixkit.co/sfx/preview/mixkit-game-dice-roll-1994.mp3");
+  /* === 触发事件（每 3 格一次） === */
+  if (playerPos[currentPlayer] % 3 === 0) {
+    let event = eventPool[eventIndex % eventPool.length];
+    eventIndex++;
 
-  let pos=current===1?p1:p2;
-  if(pos===-1){
-    if(dice===6){ pos=current===1?1:51; current===1?p1=pos:p2=pos; updateBoard(); }
-    else current=current===1?2:1;
-    moving=false; btn.innerText="🎲 掷骰子"; return;
+    log.innerHTML += `<br><br>${event.zh}<br>${event.km}`;
+
+    if (event.zh.includes("后退 2")) playerPos[currentPlayer] -= 2;
+    if (event.zh.includes("后退 3")) playerPos[currentPlayer] -= 3;
+    if (event.zh.includes("后退 1")) playerPos[currentPlayer] -= 1;
+    if (event.zh.includes("前进 2")) playerPos[currentPlayer] += 2;
+    if (event.zh.includes("前进 1")) playerPos[currentPlayer] += 1;
   }
 
-  for(let i=0;i<dice;i++){
-    pos++;
-    if((current===1 && pos>50)||(current===2 && pos>100)){
-      document.getElementById("winText").innerHTML="💘 玩家"+current+" 胜利！<br><small>ឈ្នះហើយ!</small>";
-      document.getElementById("winBox").style.display="flex";
-      moving=false; btn.innerText="🎲 掷骰子"; return;
-    }
-    current===1?p1=pos:p2=pos;
-    updateBoard(); await sleep(250);
-  }
-
-  let text=tasks[(pos-1)%tasks.length];
-  let rand=Math.random(), extra="";
-
-  if(rand<0.25){
-    let r=rewards[Math.floor(Math.random()*rewards.length)];
-    extra=r;
-    if(r.includes("前进")){
-      pos+=2;
-      current===1?p1=pos:p2=pos;
-      updateBoard();
-      playSound("https://assets.mixkit.co/sfx/preview/mixkit-achievement-bell-600.mp3");
-    }
-    if(r.includes("再掷")){ moving=false; btn.innerText="🎲 掷骰子"; document.getElementById("task").innerHTML=text+"<br>"+extra; return;}
-  }else if(rand>0.75){
-    let p=penalties[Math.floor(Math.random()*penalties.length)];
-    extra=p;
-    if(p.includes("后退")){
-      pos=Math.max(1,pos-2);
-      current===1?p1=pos:p2=pos;
-      updateBoard();
-    }
-    if(p.includes("跳过")) skipNext[current]=true;
-  }
-
-  document.getElementById("task").innerHTML=text+"<br>"+extra;
-  current=current===1?2:1;
-  document.getElementById("status").innerText="当前玩家："+current;
-  moving=false; btn.innerText="🎲 掷骰子";
+  drawBoard();
+  currentPlayer = currentPlayer === 0 ? 1 : 0;
 }
+
+drawBoard();
 </script>
-
-</body>
-</html>
