@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<title>夜晚心跳 · Dice & Heart Grid</title>
+<style>
+body { text-align: center; font-family: Arial; background: linear-gradient(to right, #ff758c, #ff7eb3); color: #fff; padding-top: 50px;}
+h1 { margin-bottom: 5px; }
+h2 { margin-bottom: 30px; }
+button { padding: 15px 25px; font-size: 20px; margin: 10px; border: none; border-radius: 10px; background-color: #ff4b5c; color: white; cursor: pointer; }
+#dice { font-size: 50px; margin-top: 20px; }
+#position { font-size: 24px; margin-top: 20px; }
+#task { font-size: 22px; margin-top: 30px; }
+</style>
+</head>
+<body>
+
+<h1>💘 夜晚心跳</h1>
+<h2>Dice & Heart Grid</h2>
+
+<button onclick="rollDice()">掷骰子 / បោះឡុកឡាក់</button>
+<div id="dice"></div>
+<div id="position"></div>
+<div id="task"></div>
+
+<script>
+const tasks = [
+"❤️ 靠近耳边低声说一句悄悄话<br>👉 ខិតជិតត្រចៀក ហើយនិយាយពាក្យសម្ងាត់មួយ",
+"🔥 抱住对方15秒<br>👉 អោបគ្នា 15 វិនាទី",
+"😈 用手轻握对方手10秒<br>👉 កាន់ដៃគ្នា 10 វិនាទី",
+"❤️ 对视20秒，不许笑<br>👉 មើលភ្នែកគ្នា 20 វិនាទី ខិតជិតៗ",
+"🔥 说一句平时不敢说的赞美话<br>👉 និយាយពាក្យសរសើរដែលមិនធ្លាប់និយាយ",
+"😈 给对方特别拥抱或肩靠<br>👉 អោបបែបពិសេស មួយដង",
+"❤️ 说出最喜欢对方一个小动作<br>👉 និយាយអំពីលក្ខណៈតូចមួយដែលអ្នកចូលចិត្ត",
+"🔥 在耳边悄悄说一句暧昧话<br>👉 និយាយពាក្យលួងចិត្តមួយ",
+"😈 轻轻牵手10秒<br>👉 កាន់ដៃគ្នា 10 វិនាទី",
+"❤️ 用低声语气夸对方<br>👉 សរសើរដោយសម្លេងទាបមួយប្រយោគ",
+"🔥 抱着对方转一圈<br>👉 អោបវង់មួយជុំ",
+"😈 说一句“我喜欢你”的变体<br>👉 និយាយពាក្យ 'ខ្ញុំចូលចិត្តអ្នក' មួយប្រយោគ"
+];
+
+let position = 0;
+
+function rollDice() {
+    const dice = Math.floor(Math.random() * 6) + 1;
+    position += dice;
+    if(position > 12) position = 12;
+    document.getElementById('dice').innerHTML = "🎲 " + dice;
+    document.getElementById('position').innerHTML = "你现在在格子 " + position + " / អ្នកនៅក្រឡា " + position;
+    document.getElementById('task').innerHTML = tasks[position-1];
+    if(position === 12){
+        alert("🏆 你到终点啦！/ អ្នកដល់ចុងហើយ!");
+        position = 0; // 重新开始
+    }
+}
+</script>
+
+</body>
+</html>
