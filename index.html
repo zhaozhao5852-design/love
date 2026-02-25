@@ -2,57 +2,244 @@
 <html lang="zh">
 <head>
 <meta charset="UTF-8">
-<title>夜晚心跳 · Dice & Heart Grid</title>
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>心跳对战</title>
+
 <style>
-body { text-align: center; font-family: Arial; background: linear-gradient(to right, #ff758c, #ff7eb3); color: #fff; padding-top: 50px;}
-h1 { margin-bottom: 5px; }
-h2 { margin-bottom: 30px; }
-button { padding: 15px 25px; font-size: 20px; margin: 10px; border: none; border-radius: 10px; background-color: #ff4b5c; color: white; cursor: pointer; }
-#dice { font-size: 50px; margin-top: 20px; }
-#position { font-size: 24px; margin-top: 20px; }
-#task { font-size: 22px; margin-top: 30px; }
+body{
+  margin:0;
+  font-family:Arial;
+  background:linear-gradient(180deg,#141e30,#0f0c29);
+  overflow:hidden;
+  color:white;
+  text-align:center;
+}
+
+/* 星空粒子背景 */
+canvas{
+  position:fixed;
+  top:0;
+  left:0;
+  z-index:-1;
+}
+
+/* 顶部状态栏 */
+.topbar{
+  display:flex;
+  justify-content:space-between;
+  padding:15px 20px;
+  font-size:14px;
+}
+
+.player{
+  padding:6px 12px;
+  border-radius:20px;
+  background:rgba(255,255,255,0.1);
+}
+
+.active{
+  box-shadow:0 0 15px #ff4b8a;
+  background:#ff4b8a;
+}
+
+/* 棋盘 */
+.board{
+  display:grid;
+  grid-template-columns:repeat(4,70px);
+  gap:15px;
+  justify-content:center;
+  margin-top:40px;
+}
+
+.cell{
+  width:70px;
+  height:70px;
+  border-radius:15px;
+  background:rgba(255,255,255,0.05);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  font-size:18px;
+  border:2px solid rgba(255,255,255,0.1);
+  transition:0.3s;
+}
+
+.cell.player1{
+  background:#ff4b8a;
+  box-shadow:0 0 20px #ff4b8a;
+}
+
+.cell.player2{
+  background:#00f0ff;
+  box-shadow:0 0 20px #00f0ff;
+}
+
+/* 骰子按钮 */
+#diceBtn{
+  margin-top:35px;
+  padding:15px 35px;
+  font-size:18px;
+  border:none;
+  border-radius:30px;
+  background:linear-gradient(90deg,#ff4b8a,#ff9acb);
+  color:white;
+  box-shadow:0 0 20px #ff4b8a;
+}
+
+/* 心跳条 */
+.energy{
+  width:80%;
+  height:15px;
+  background:#222;
+  margin:25px auto;
+  border-radius:10px;
+}
+
+.energyBar{
+  height:100%;
+  width:0%;
+  background:linear-gradient(90deg,#ff4b8a,#ff9acb);
+  border-radius:10px;
+  transition:0.3s;
+}
+
+/* 胜利弹窗 */
+.winBox{
+  position:fixed;
+  top:0;
+  left:0;
+  width:100%;
+  height:100%;
+  background:rgba(0,0,0,0.8);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  flex-direction:column;
+  font-size:22px;
+  display:none;
+}
+.winBox button{
+  margin-top:20px;
+  padding:10px 25px;
+  border:none;
+  border-radius:20px;
+  background:#ff4b8a;
+  color:white;
+}
 </style>
 </head>
+
 <body>
 
-<h1>💘 夜晚心跳</h1>
-<h2>Dice & Heart Grid</h2>
+<canvas id="stars"></canvas>
 
-<button onclick="rollDice()">掷骰子 / បោះឡុកឡាក់</button>
-<div id="dice"></div>
-<div id="position"></div>
-<div id="task"></div>
+<div class="topbar">
+  <div id="p1UI" class="player active">玩家1 ❤️</div>
+  <div id="p2UI" class="player">玩家2 💙</div>
+</div>
+
+<div class="energy">
+  <div id="energyBar" class="energyBar"></div>
+</div>
+
+<div class="board" id="board"></div>
+
+<button id="diceBtn">🎲 掷骰子</button>
+
+<div id="task" style="margin-top:20px;height:40px;"></div>
+
+<div class="winBox" id="winBox">
+  <div id="winText"></div>
+  <button onclick="location.reload()">再来一局</button>
+</div>
 
 <script>
-const tasks = [
-"❤️ 靠近耳边低声说一句悄悄话<br>👉 ខិតជិតត្រចៀក ហើយនិយាយពាក្យសម្ងាត់មួយ",
-"🔥 抱住对方15秒<br>👉 អោបគ្នា 15 វិនាទី",
-"😈 用手轻握对方手10秒<br>👉 កាន់ដៃគ្នា 10 វិនាទី",
-"❤️ 对视20秒，不许笑<br>👉 មើលភ្នែកគ្នា 20 វិនាទី ខិតជិតៗ",
-"🔥 说一句平时不敢说的赞美话<br>👉 និយាយពាក្យសរសើរដែលមិនធ្លាប់និយាយ",
-"😈 给对方特别拥抱或肩靠<br>👉 អោបបែបពិសេស មួយដង",
-"❤️ 说出最喜欢对方一个小动作<br>👉 និយាយអំពីលក្ខណៈតូចមួយដែលអ្នកចូលចិត្ត",
-"🔥 在耳边悄悄说一句暧昧话<br>👉 និយាយពាក្យលួងចិត្តមួយ",
-"😈 轻轻牵手10秒<br>👉 កាន់ដៃគ្នា 10 វិនាទី",
-"❤️ 用低声语气夸对方<br>👉 សរសើរដោយសម្លេងទាបមួយប្រយោគ",
-"🔥 抱着对方转一圈<br>👉 អោបវង់មួយជុំ",
-"😈 说一句“我喜欢你”的变体<br>👉 និយាយពាក្យ 'ខ្ញុំចូលចិត្តអ្នក' មួយប្រយោគ"
+const tasks=[
+"说一句让对方心跳加速的话",
+"牵手10秒",
+"对视5秒",
+"说最喜欢对方的地方",
+"靠近耳边轻声一句话",
+"抱一下",
+"说一句平时不敢说的话",
+"微笑看着对方",
+"用眼神表达喜欢",
+"轻轻拍肩",
+"给一个温柔夸奖",
+"说未来想一起做的事"
 ];
 
-let position = 0;
+let p1=0,p2=0,current=1,energy=0;
+const board=document.getElementById("board");
 
-function rollDice() {
-    const dice = Math.floor(Math.random() * 6) + 1;
-    position += dice;
-    if(position > 12) position = 12;
-    document.getElementById('dice').innerHTML = "🎲 " + dice;
-    document.getElementById('position').innerHTML = "你现在在格子 " + position + " / អ្នកនៅក្រឡា " + position;
-    document.getElementById('task').innerHTML = tasks[position-1];
-    if(position === 12){
-        alert("🏆 你到终点啦！/ អ្នកដល់ចុងហើយ!");
-        position = 0; // 重新开始
-    }
+for(let i=1;i<=12;i++){
+  let cell=document.createElement("div");
+  cell.className="cell";
+  cell.id="c"+i;
+  cell.innerText=i;
+  board.appendChild(cell);
 }
+
+function update(){
+  document.querySelectorAll(".cell").forEach(c=>c.classList.remove("player1","player2"));
+  if(p1>0) document.getElementById("c"+p1).classList.add("player1");
+  if(p2>0) document.getElementById("c"+p2).classList.add("player2");
+
+  document.getElementById("p1UI").classList.toggle("active",current===1);
+  document.getElementById("p2UI").classList.toggle("active",current===2);
+}
+
+document.getElementById("diceBtn").onclick=function(){
+  let dice=Math.floor(Math.random()*6)+1;
+
+  if(current===1){
+    p1+=dice;
+    if(p1>12)p1=12;
+  }else{
+    p2+=dice;
+    if(p2>12)p2=12;
+  }
+
+  energy+=7;
+  if(energy>100)energy=100;
+  document.getElementById("energyBar").style.width=energy+"%";
+
+  let pos=current===1?p1:p2;
+  document.getElementById("task").innerText=tasks[pos-1];
+
+  update();
+
+  if(pos===12){
+    document.getElementById("winText").innerText="💘 玩家"+current+" 胜利！";
+    document.getElementById("winBox").style.display="flex";
+  }
+
+  current=current===1?2:1;
+};
+
+/* 星空背景 */
+const canvas=document.getElementById("stars");
+const ctx=canvas.getContext("2d");
+canvas.width=window.innerWidth;
+canvas.height=window.innerHeight;
+
+let stars=[];for(let i=0;i<100;i++){
+  stars.push({x:Math.random()*canvas.width,
+              y:Math.random()*canvas.height,
+              r:Math.random()*2});
+}
+
+function drawStars(){
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  ctx.fillStyle="white";
+  stars.forEach(s=>{
+    ctx.beginPath();
+    ctx.arc(s.x,s.y,s.r,0,Math.PI*2);
+    ctx.fill();
+  });
+  requestAnimationFrame(drawStars);
+}
+drawStars();
 </script>
 
 </body>
