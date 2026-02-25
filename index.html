@@ -1,101 +1,153 @@
-<script>
-const totalCells = 30;
-let playerPos = [0, 0];
-let currentPlayer = 0;
-let eventIndex = 0;
+import pygame
+import sys
+import random
 
-/* ========= 50 条情侣事件池（中 + 高棉） ========= */
-const eventPool = [
-  { zh: "❤️ 对方夸你一句", km: "❤️ អ្នកត្រូវសរសើរគូស្នេហ៍មួយ句" },
-  { zh: "🔥 对视 20 秒", km: "🔥 មើលភ្នែកគ្នា 20 វិនាទី" },
-  { zh: "💣 后退 2 格", km: "💣 ថយក្រោយ 2 ជំហាន" },
-  { zh: "🎁 再掷一次骰子", km: "🎁 បោះ骰ម្តងទៀត" },
-  { zh: "❤️ 抱一下", km: "❤️ អោបគ្នាម្តង" },
-  { zh: "🔥 说一句情话", km: "🔥 និយាយពាក្យស្នេហ៍មួយ句" },
-  { zh: "💣 停一回合", km: "💣 បាត់មួយវេន" },
-  { zh: "🎁 骰子 +1（本回合）", km: "🎁 ពិន្ទុ骰 +1 (វេននេះ)" },
-  { zh: "❤️ 牵手 30 秒", km: "❤️ កាន់ដៃ 30 វិនាទី" },
-  { zh: "🔥 说一个秘密", km: "🔥 ប្រាប់អាថ៌កំបាំងមួយ" },
+# ---------- 初始化 ----------
+pygame.init()
+WIDTH, HEIGHT = 1000, 300
+screen = pygame.display.set_mode((WIDTH, HEIGHT))
+pygame.display.set_caption("情侣飞行棋 - Auronix版")
 
-  { zh: "💣 被对方轻轻捏脸", km: "💣 ឲ្យគូស្នេហ៍ច្របាច់មុខស្រាលៗ" },
-  { zh: "🎁 前进 2 格", km: "🎁 ទៅមុខ 2 ជំហាន" },
-  { zh: "❤️ 摸摸对方头", km: "❤️ ប៉ះក្បាលគូស្នេហ៍" },
-  { zh: "🔥 小声说我爱你", km: "🔥 និយាយថា ស្រលាញ់អ្នក ស្រាលៗ" },
-  { zh: "💣 后退 3 格", km: "💣 ថយក្រោយ 3 ជំហាន" },
+# 颜色
+WHITE = (255, 255, 255)
+BLACK = (0, 0, 0)
+RED = (255, 50, 50)
+BLUE = (50, 50, 255)
+GREEN = (50, 255, 50)
+YELLOW = (255, 255, 50)
+GRAY = (200, 200, 200)
+DICE_COLOR = (200, 100, 50)
 
-  { zh: "🎁 免疫一次惩罚", km: "🎁 អ免្យូនពីទណ្ឌកម្មម្តង" },
-  { zh: "❤️ 夸对方外貌", km: "❤️ សរសើររូបរាងគូស្នេហ៍" },
-  { zh: "🔥 贴近耳朵说一句话", km: "🔥 និយាយខ្លឹមសារមួយជិតត្រចៀក" },
-  { zh: "💣 原地转一圈", km: "💣 បង្វិលខ្លួនមួយជុំ" },
-  { zh: "🎁 交换位置", km: "🎁 ប្តូរទីតាំងគ្នា" },
+# 字体
+font = pygame.font.SysFont("arial", 18)
+big_font = pygame.font.SysFont("arial", 28)
 
-  /* ====== 为了够 50 条，下面是补充 ====== */
-  { zh: "❤️ 微笑看着对方 10 秒", km: "❤️ ញញឹមមើលគ្នា 10 វិនាទី" },
-  { zh: "🔥 模仿对方一个表情", km: "🔥 ត្រាប់តាមមុខគូស្នេហ៍" },
-  { zh: "💣 被点一个小惩罚", km: "💣 ទទួលទណ្ឌកម្មតូចមួយ" },
-  { zh: "🎁 本回合不换人", km: "🎁 វេននេះមិនប្តូរអ្នកលេង" },
-  { zh: "❤️ 说一句感谢的话", km: "❤️ និយាយពាក្យអរគុណ" },
+# 棋盘格子
+NUM_SQUARES = 50
+SQUARE_WIDTH = WIDTH // NUM_SQUARES
 
-  { zh: "🔥 说最喜欢对方的一点", km: "🔥 និយាយអ្វីដែលចូលចិត្តបំផុត" },
-  { zh: "💣 后退 1 格", km: "💣 ថយក្រោយ 1 ជំហាន" },
-  { zh: "🎁 前进 1 格", km: "🎁 ទៅមុខ 1 ជំហាន" },
-  { zh: "❤️ 比个爱心手势", km: "❤️ ធ្វើសញ្ញាបេះដូង" },
-  { zh: "🔥 轻轻碰一下额头", km: "🔥 ប៉ះថ្ងាសស្រាលៗ" },
+# 玩家位置
+player_pos = {"A": 0, "B": 0}
 
-  { zh: "💣 表演一个可爱的动作", km: "💣 សម្តែងចលនាគួរឲ្យស្រឡាញ់" },
-  { zh: "🎁 指定下一条事件给对方", km: "🎁 កំណត់ព្រឹត្តិការណ៍បន្ទាប់ឲ្យគូស្នេហ៍" },
-  { zh: "❤️ 说一句你喜欢这局游戏", km: "❤️ និយាយថាអ្នកចូលចិត្តល្បែងនេះ" },
-  { zh: "🔥 靠近对方 5 秒", km: "🔥 ចូលជិតគូស្នេហ៍ 5 វិនាទី" },
-  { zh: "💣 停下来深呼吸 3 次", km: "💣 ដកដង្ហើមជ្រៅ 3 ដង" }
-];
-
-/* ========= 棋盘绘制 ========= */
-function drawBoard() {
-  const board = document.getElementById("board");
-  board.innerHTML = "";
-  for (let i = 1; i <= totalCells; i++) {
-    let cell = document.createElement("div");
-    cell.className = "cell";
-    cell.innerText = i;
-    if (playerPos[0] === i) cell.classList.add("player1");
-    if (playerPos[1] === i) cell.classList.add("player2");
-    board.appendChild(cell);
-  }
+# 奖励/惩罚格
+special_squares = {
+    5: ("奖励：前进2格", "រង្វាន់: ឡើង 2 កន្លែង"),
+    12: ("惩罚：后退1格", "ទោស: ត្រឡប់ 1 កន្លែង"),
+    20: ("奖励：前进3格", "រង្វាន់: ឡើង 3 កន្លែង"),
+    33: ("惩罚：后退2格", "ទោស: ត្រឡប់ 2 កន្លែង"),
+    42: ("奖励：再掷一次", "រង្វាន់: លេងម្តងទៀត")
 }
 
-/* ========= 掷骰 ========= */
-function rollDice() {
-  let dice = Math.floor(Math.random() * 6) + 1;
-  let log = document.getElementById("log");
+# 语言选择
+language = "cn"  # cn: 中文, kh: 高棉语
 
-  log.innerHTML = `玩家 ${currentPlayer + 1} 🎲 掷出 ${dice}`;
+# 当前提示信息
+message = ""
 
-  playerPos[currentPlayer] += dice;
+# ---------- 游戏函数 ----------
+def dice_jump_animation(final_value):
+    # 骰子初始位置
+    x, y = WIDTH - 150, 50
+    velocity = -15  # 弹起速度
+    gravity = 1
+    dy = velocity
+    bounce_count = 0
 
-  if (playerPos[currentPlayer] >= totalCells) {
-    playerPos[currentPlayer] = totalCells;
-    drawBoard();
-    log.innerHTML += "<br>🏁 获胜！终极奖励触发";
-    return;
-  }
+    while bounce_count < 2:
+        screen.fill(WHITE)
+        draw_board(dice=None)
+        # 画骰子
+        pygame.draw.rect(screen, DICE_COLOR, (x, y, 50, 50))
+        dice_surface = big_font.render(str(final_value), True, BLACK)
+        screen.blit(dice_surface, (x + 15, y + 10))
+        pygame.display.flip()
 
-  /* === 触发事件（每 3 格一次） === */
-  if (playerPos[currentPlayer] % 3 === 0) {
-    let event = eventPool[eventIndex % eventPool.length];
-    eventIndex++;
+        y += dy
+        dy += gravity
 
-    log.innerHTML += `<br><br>${event.zh}<br>${event.km}`;
+        if y >= 100:  # 碰到底部弹起
+            y = 100
+            dy = -dy * 0.6  # 弹力衰减
+            bounce_count += 1
 
-    if (event.zh.includes("后退 2")) playerPos[currentPlayer] -= 2;
-    if (event.zh.includes("后退 3")) playerPos[currentPlayer] -= 3;
-    if (event.zh.includes("后退 1")) playerPos[currentPlayer] -= 1;
-    if (event.zh.includes("前进 2")) playerPos[currentPlayer] += 2;
-    if (event.zh.includes("前进 1")) playerPos[currentPlayer] += 1;
-  }
+        pygame.time.delay(20)
 
-  drawBoard();
-  currentPlayer = currentPlayer === 0 ? 1 : 0;
-}
+def roll_dice_animation():
+    for _ in range(10):
+        dice = random.randint(1, 6)
+        draw_board(dice=dice)
+        pygame.time.delay(50)
+    dice = random.randint(1, 6)
+    dice_jump_animation(dice)
+    return dice
 
-drawBoard();
-</script>
+def move_player(player):
+    global message
+    dice = roll_dice_animation()
+    player_pos[player] = (player_pos[player] + dice) % NUM_SQUARES
+    msg = f"{player} 掷骰子: {dice}, 当前位置: {player_pos[player]}"
+    
+    if player_pos[player] in special_squares:
+        reward = special_squares[player_pos[player]][0] if language=="cn" else special_squares[player_pos[player]][1]
+        msg += " | " + reward
+        if "前进" in reward or "ឡើង" in reward:
+            move = int([s for s in reward if s.isdigit()][0])
+            player_pos[player] = (player_pos[player] + move) % NUM_SQUARES
+        elif "后退" in reward or "ត្រឡប់" in reward:
+            move = int([s for s in reward if s.isdigit()][0])
+            player_pos[player] = (player_pos[player] - move) % NUM_SQUARES
+        elif "再掷一次" in reward or "លេងម្តងទៀត" in reward:
+            move_player(player)
+    message = msg
+    print(msg)
+
+def draw_board(dice=None):
+    # 画格子
+    for i in range(NUM_SQUARES):
+        rect = pygame.Rect(i*SQUARE_WIDTH, HEIGHT//2 - 30, SQUARE_WIDTH, 60)
+        color = GRAY
+        if i in special_squares:
+            color = YELLOW
+        pygame.draw.rect(screen, color, rect)
+        pygame.draw.rect(screen, BLACK, rect, 1)
+    
+    # 画玩家
+    pygame.draw.circle(screen, RED, (player_pos["A"]*SQUARE_WIDTH + SQUARE_WIDTH//2, HEIGHT//2), 15)
+    pygame.draw.circle(screen, BLUE, (player_pos["B"]*SQUARE_WIDTH + SQUARE_WIDTH//2, HEIGHT//2), 15)
+    
+    # 显示提示信息
+    if message:
+        msg_surface = big_font.render(message, True, BLACK)
+        screen.blit(msg_surface, (10, HEIGHT - 50))
+    
+    # 显示骰子点数（静态）
+    if dice:
+        pygame.draw.rect(screen, DICE_COLOR, (WIDTH - 150, 50, 50, 50))
+        dice_surface = big_font.render(str(dice), True, BLACK)
+        screen.blit(dice_surface, (WIDTH - 135, 60))
+    
+    pygame.display.flip()
+
+# ---------- 主循环 ----------
+turn_order = ["A", "B"]
+turn_index = 0
+clock = pygame.time.Clock()
+
+while True:
+    clock.tick(10)
+    draw_board()
+    
+    for event in pygame.event.get():
+        if event.type == pygame.QUIT:
+            pygame.quit()
+            sys.exit()
+        # 空格掷骰子
+        if event.type == pygame.KEYDOWN:
+            if event.key == pygame.K_SPACE:
+                current_player = turn_order[turn_index % 2]
+                move_player(current_player)
+                turn_index += 1
+            # L键切换语言
+            if event.key == pygame.K_l:
+                language = "kh" if language=="cn" else "cn"
+                message = f"语言切换为: {'高棉语' if language=='kh' else '中文'}"
