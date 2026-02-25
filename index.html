@@ -1,170 +1,148 @@
-<!DOCTYPE html>
-<html lang="zh">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>夜晚飞行棋</title>
-
-<style>
-body{
-  margin:0;
-  background:radial-gradient(circle,#1a1a2e,#0f0f1b);
-  font-family:Arial;
-  text-align:center;
-  color:white;
-}
-
-h2{margin-top:15px;}
-
-.board{
-  width:360px;
-  height:360px;
-  margin:20px auto;
-  position:relative;
-  display:grid;
-  grid-template-columns:repeat(6,1fr);
-  grid-template-rows:repeat(6,1fr);
-  gap:4px;
-}
-
-.cell{
-  background:#1b1b33;
-  border-radius:10px;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  font-size:12px;
-  box-shadow:0 0 6px rgba(255,75,138,0.3);
-}
-
-.path{
-  background:#22224a;
-}
-
-.p1{
-  background:#ff4b8a !important;
-  box-shadow:0 0 15px #ff4b8a;
-}
-
-.p2{
-  background:#00f0ff !important;
-  box-shadow:0 0 15px #00f0ff;
-}
-
-button{
-  padding:12px 25px;
-  font-size:18px;
-  border:none;
-  border-radius:20px;
-  background:#ff4b8a;
-  color:white;
-  box-shadow:0 0 15px #ff4b8a;
-}
-
-#status{margin-top:10px;}
-
-.win{
-  position:fixed;
-  top:0;left:0;
-  width:100%;height:100%;
-  background:rgba(0,0,0,0.8);
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  flex-direction:column;
-  display:none;
-}
-</style>
-</head>
-
-<body>
-
-<h2>🌙 夜晚飞行棋对战</h2>
-<div id="status">当前玩家：玩家1</div>
-
-<div class="board" id="board"></div>
-
-<button onclick="roll()">🎲 掷骰子</button>
-
-<div class="win" id="winBox">
-  <h1 id="winText"></h1>
-  <button onclick="location.reload()">再来一局</button>
-</div>
-
 <script>
 const board=document.getElementById("board");
 
-/* 飞行棋路径（绕圈） */
-const pathIndex=[
-  30,31,32,33,34,35,
-  29,23,17,11,5,
-  4,3,2,1,0,
-  6,12,18,24,
-  25,26,27,28
-];
-
-/* 生成6x6棋盘 */
-for(let i=0;i<36;i++){
+/* 生成100格 */
+for(let i=1;i<=100;i++){
   let cell=document.createElement("div");
   cell.className="cell";
   cell.id="c"+i;
+  cell.innerText=i;
   board.appendChild(cell);
 }
 
-/* 标记路径 */
-pathIndex.forEach(i=>{
-  document.getElementById("c"+i).classList.add("path");
-});
+/* 情侣任务数组 */
+const tasks=[
+"说一句喜欢对方的话",
+"牵手5秒",
+"对视3秒",
+"夸对方一句",
+"轻轻靠近",
+"抱一下",
+"说最喜欢对方哪里",
+"给一个温柔微笑",
+"说未来想一起做的事",
+"轻声叫昵称"
+];
 
-let p1=-1,p2=-1;
+/* 奖励和惩罚数组 */
+const rewards=[
+"💚 前进2格",
+"💚 额外再掷一次骰子",
+"💚 互相拥抱一下",
+"💚 对方夸你一句"
+];
+
+const penalties=[
+"❤️ 后退2格",
+"❤️ 本轮跳过一次",
+"❤️ 做一个搞笑动作",
+"❤️ 说一句害羞的话"
+];
+
+let p1=-1, p2=-1;
 let current=1;
+let moving=false; // 防止重复点击骰子
+let skipNext = {1:false,2:false}; // 本轮跳过标记
 
 function updateBoard(){
   document.querySelectorAll(".cell").forEach(c=>{
     c.classList.remove("p1","p2");
   });
-
-  if(p1>=0) document.getElementById("c"+pathIndex[p1]).classList.add("p1");
-  if(p2>=0) document.getElementById("c"+pathIndex[p2]).classList.add("p2");
+  if(p1>=1) document.getElementById("c"+p1).classList.add("p1");
+  if(p2>=1) document.getElementById("c"+p2).classList.add("p2");
 }
 
-function roll(){
-  let dice=Math.floor(Math.random()*6)+1;
+function sleep(ms){ return new Promise(resolve=>setTimeout(resolve,ms)); }
 
-  let playerPos=current===1?p1:p2;
+async function roll(){
+  if(moving) return; 
+  moving = true;
 
-  if(playerPos===-1){
-    if(dice===6){
-      if(current===1)p1=0;
-      else p2=0;
+  // 跳过回合检查
+  if(skipNext[current]){
+    document.getElementById("status").innerText="玩家"+current+" 本轮跳过!";
+    skipNext[current] = false;
+    current = current===1?2:1;
+    moving=false;
+    return;
+  }
+
+  let dice = Math.floor(Math.random()*6)+1;
+  document.getElementById("status").innerText="玩家"+current+" 掷出："+dice;
+
+  let pos = current===1 ? p1 : p2;
+
+  if(pos === -1){
+    if(dice === 6){
+      pos = current===1 ? 1 : 51;
+      if(current===1) p1=pos; else p2=pos;
+      updateBoard();
+    } else {
+      current = current===1 ? 2 :1;
     }
-  }else{
-    playerPos+=dice;
-    if(playerPos>=pathIndex.length-1){
-      document.getElementById("winText").innerText="💘 玩家"+current+" 胜利！";
+    moving = false;
+    return;
+  }
+
+  // 逐步移动动画
+  for(let i=1;i<=dice;i++){
+    pos +=1;
+    if(current===1 && pos>50){
+      document.getElementById("winText").innerText="💘 玩家1胜利！";
       document.getElementById("winBox").style.display="flex";
+      moving=false;
       return;
     }
-
-    if(current===1)p1=playerPos;
-    else p2=playerPos;
+    if(current===2 && pos>100){
+      document.getElementById("winText").innerText="💘 玩家2胜利！";
+      document.getElementById("winBox").style.display="flex";
+      moving=false;
+      return;
+    }
+    if(current===1) p1=pos; else p2=pos;
+    updateBoard();
+    await sleep(300);
   }
 
-  /* 踩人规则 */
-  if(p1===p2 && p1!==-1){
-    if(current===1)p2=-1;
-    else p1=-1;
+  // 显示任务
+  let taskIndex = (pos-1) % tasks.length;
+  let taskText = tasks[taskIndex];
+
+  // 随机奖励或惩罚
+  let rand = Math.random();
+  let rpText = "";
+  if(rand<0.25){ // 25%奖励
+    let r = rewards[Math.floor(Math.random()*rewards.length)];
+    rpText = r;
+    if(r.includes("前进2格")){
+      pos +=2;
+      if(current===1 && pos>50){ document.getElementById("winText").innerText="💘 玩家1胜利！"; document.getElementById("winBox").style.display="flex"; moving=false; return;}
+      if(current===2 && pos>100){ document.getElementById("winText").innerText="💘 玩家2胜利！"; document.getElementById("winBox").style.display="flex"; moving=false; return;}
+      if(current===1) p1=pos; else p2=pos;
+      updateBoard();
+    }
+    if(r.includes("额外再掷一次骰子")){
+      current = current; // 不换玩家
+    }
+  } else if(rand>0.75){ // 25%惩罚
+    let p = penalties[Math.floor(Math.random()*penalties.length)];
+    rpText = p;
+    if(p.includes("后退2格")){
+      pos -=2; if(pos<1) pos=1;
+      if(current===1) p1=pos; else p2=pos;
+      updateBoard();
+    }
+    if(p.includes("本轮跳过一次")){
+      skipNext[current]=true;
+    }
   }
 
-  updateBoard();
+  document.getElementById("task").innerHTML = taskText + "<br><span style='color:#0f0'>" + rpText + "</span>";
 
-  if(dice!==6){
-    current=current===1?2:1;
-  }
+  // 切换玩家（掷6或额外掷一次不换）
+  if(!rpText.includes("额外再掷一次骰子") && dice!==6) current = current===1?2:1;
+  document.getElementById("status").innerText="当前玩家："+current;
 
-  document.getElementById("status").innerText="当前玩家：玩家"+current;
+  moving=false;
 }
 </script>
-
-</body>
-</html>
